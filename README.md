@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RAG Evaluation Playground
 
-## Getting Started
+Test and debug your RAG pipelines with failure mode diagnosis.
 
-First, run the development server:
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/rag-eval-playground&env=GROQ_API_KEY&envDescription=Get%20your%20free%20Groq%20API%20key%20from%20console.groq.com)
+
+## Features
+
+- 📄 **Upload Documents**: PDF, TXT, or Markdown files (max 3 files, 5MB each)
+- ❓ **Test Questions**: Use sample questions or provide your own
+- ⚙️ **Configure Pipeline**: 5 adjustable knobs for RAG parameters
+- 📊 **A/B Comparison**: Compare your config against a baseline
+- 🎯 **Failure Diagnosis**: Categorized breakdown of issues
+- 💡 **Recommendations**: Actionable fixes with tradeoff notes
+
+## Quick Start
+
+### 1. Get a Groq API Key (Free)
+
+Visit [console.groq.com](https://console.groq.com) and create a free account to get your API key.
+
+### 2. Clone & Install
+
+```bash
+git clone https://github.com/YOUR_USERNAME/rag-eval-playground.git
+cd rag-eval-playground
+npm install
+```
+
+### 3. Configure Environment
+
+```bash
+cp .env.local.example .env.local
+# Edit .env.local and add your GROQ_API_KEY
+```
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configuration Knobs
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Setting | Options | Description |
+|---------|---------|-------------|
+| **Chunk Size** | 300, 500, 800, 1200 | How to split documents |
+| **Search Type** | Semantic, Keyword, Hybrid | Retrieval method |
+| **Top-K** | 3, 5, 8 | Number of chunks to retrieve |
+| **Abstain Threshold** | 0.3 - 0.7 | When to say "I don't know" |
+| **Strict Citations** | On/Off | Require evidence for claims |
 
-## Learn More
+## Failure Modes
 
-To learn more about Next.js, take a look at the following resources:
+The app diagnoses these failure types:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Retrieval Miss**: Relevant information not found
+- **Context Dilution**: Too much irrelevant context
+- **Hallucination**: Answer without evidence
+- **Over-abstain**: Refused when evidence existed
+- **Perfect**: Grounded and correctly cited
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tech Stack
 
-## Deploy on Vercel
+- **Framework**: Next.js 14 (App Router)
+- **Styling**: Tailwind CSS + shadcn/ui
+- **LLM**: Groq (Llama 3.3 70B)
+- **State**: Zustand
+- **Deploy**: Vercel (free tier)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
