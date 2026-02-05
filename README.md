@@ -1,37 +1,46 @@
 # RAG Evaluation Playground
 
-Test and debug your RAG pipelines with failure mode diagnosis.
+A premium tool to test, debug, and optimize RAG (Retrieval-Augmented Generation) pipelines with multi-provider support and failure mode diagnosis.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/rag-eval-playground&env=GROQ_API_KEY&envDescription=Get%20your%20free%20Groq%20API%20key%20from%20console.groq.com)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/mohan25manu/rag-eval-playground&env=GROQ_API_KEY&envDescription=Shared%20API%20key%20for%20testing)
 
-## Features
+## 🌟 Features
 
-- 📄 **Upload Documents**: PDF, TXT, or Markdown files (max 3 files, 5MB each)
-- ❓ **Test Questions**: Use sample questions or provide your own
-- ⚙️ **Configure Pipeline**: 5 adjustable knobs for RAG parameters
-- 📊 **A/B Comparison**: Compare your config against a baseline
-- 🎯 **Failure Diagnosis**: Categorized breakdown of issues
-- 💡 **Recommendations**: Actionable fixes with tradeoff notes
+- 🖥️ **Unified Dashboard**: Live configuration knobs and results on a single screen for rapid iteration.
+- 🤖 **Multi-LLM Autodetect**: Supports **Groq, OpenAI, Anthropic, and Gemini**. Just paste your key and the system detects the provider instantly.
+- 📄 **Document Handling**: PDF, TXT, and Markdown support (max 3 files).
+- ⚙️ **Advanced Knobs**: 
+  - **Chunk Size & Overlap %**: Control context continuity with dynamic overlap calculation.
+  - **Search Type**: Semantic, Keyword, or Hybrid.
+  - **Abstain Threshold**: Prevent hallucinations by setting confidence limits.
+- 🎯 **Failure Diagnosis**: Automatically detects *Retrieval Misses*, *Context Dilution*, *Hallucinations*, and *Over-abstention*.
+- 💡 **Actionable Recommendations**: Clear fixes with tradeoff analysis for every pipeline failure.
 
-## Quick Start
+## 🚀 Getting Started
 
-### 1. Get a Groq API Key (Free)
+### 1. Prerequisites
 
-Visit [console.groq.com](https://console.groq.com) and create a free account to get your API key.
+- **Node.js 18+** installed.
+- **Git** installed.
+- One of the following API keys (optional, but recommended to avoid rate limits):
+  - [Groq](https://console.groq.com) (Free)
+  - [OpenAI](https://platform.openai.com)
+  - [Anthropic](https://console.anthropic.com)
+  - [Google Gemini](https://aistudio.google.com)
 
-### 2. Clone & Install
+### 2. Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/rag-eval-playground.git
+git clone https://github.com/mohan25manu/rag-eval-playground.git
 cd rag-eval-playground
 npm install
 ```
 
-### 3. Configure Environment
+### 3. Setup Environment
 
 ```bash
 cp .env.local.example .env.local
-# Edit .env.local and add your GROQ_API_KEY
+# Edit .env.local and add your GROQ_API_KEY as a default fallback
 ```
 
 ### 4. Run Development Server
@@ -40,36 +49,33 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app.
+Open [http://localhost:3000](http://localhost:3000) to start testing.
 
-## Configuration Knobs
+## 🏗️ Project Architecture
 
-| Setting | Options | Description |
-|---------|---------|-------------|
-| **Chunk Size** | 300, 500, 800, 1200 | How to split documents |
-| **Search Type** | Semantic, Keyword, Hybrid | Retrieval method |
-| **Top-K** | 3, 5, 8 | Number of chunks to retrieve |
-| **Abstain Threshold** | 0.3 - 0.7 | When to say "I don't know" |
-| **Strict Citations** | On/Off | Require evidence for claims |
+This is a **Modern Web Application** built with:
+- **Framework**: [Next.js 14/15](https://nextjs.org) (TypeScript, App Router)
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/) for efficient UI state.
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) for a premium, dark-mode aesthetic.
+- **Logic Layer**:
+  - `src/lib/rag-engine.ts`: Core AI logic (Multi-provider orchestration).
+  - `src/lib/chunker.ts`: Custom text splitting with overlap logic.
+  - `src/lib/retriever.ts`: Hybrid search implementation.
+  - `src/lib/evaluator.ts`: Failure mode classification engine.
 
-## Failure Modes
+> [!NOTE]
+> This project is written entirely in **TypeScript/JavaScript** for seamless full-stack performance. There is no Python code—the "agents" are implemented as standardized LLM completions in the `lib` folder.
 
-The app diagnoses these failure types:
+## 📊 Configuration Guide
 
-- **Retrieval Miss**: Relevant information not found
-- **Context Dilution**: Too much irrelevant context
-- **Hallucination**: Answer without evidence
-- **Over-abstain**: Refused when evidence existed
-- **Perfect**: Grounded and correctly cited
+| Setting | Range | Goal |
+|---------|-------|------|
+| **Chunk Size** | 300 - 1200 | Balancing context vs. noise. |
+| **Chunk Overlap** | 5% - 40% | Maintaining continuity across boundaries. |
+| **Search Type** | Semantic / Hybrid | Optimizing retrieval precision. |
+| **Top-K** | 3 - 8 | Determining how much evidence to feed the LLM. |
+| **Abstain** | 0.1 - 0.9 | Tuning the "I don't know" threshold. |
 
-## Tech Stack
-
-- **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS + shadcn/ui
-- **LLM**: Groq (Llama 3.3 70B)
-- **State**: Zustand
-- **Deploy**: Vercel (free tier)
-
-## License
+## 🛡️ License
 
 MIT
