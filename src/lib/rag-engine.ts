@@ -1,22 +1,30 @@
 import Groq from 'groq-sdk';
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { RetrievedChunk } from './types';
 
-// Lazy-load Groq client to avoid build-time errors
-let groqClient: Groq | null = null;
-function getGroqClient(): Groq {
-    if (!groqClient) {
-        groqClient = new Groq({
-            apiKey: process.env.GROQ_API_KEY,
-        });
-    }
-    return groqClient;
-}
+export type LLMProvider = 'groq' | 'openai' | 'anthropic' | 'gemini';
 
 export interface AnswerResult {
     answer: string;
     abstained: boolean;
     confidence: number;
     citations: number[];
+    provider?: LLMProvider;
+}
+
+/**
+ * Detect LLM provider based on API key prefix
+ */
+export function detectProvider(apiKey: string): LLMProvider {
+    if (apiKey.startsWith('gsk_')) return 'groq';
+    if (apiKey.startsWith('sk-ant-')) return 'anthropic';
+    if (apiKey.startsWith('sk-')) return 'openai';
+    if (apiKey.startsWith('AIza')) return 'gemini';
+
+    // Default to groq if unknown but present (for backwards compatibility with env vars)
+    return 'groq';
 }
 
 /**
@@ -26,7 +34,8 @@ export async function answerQuestion(
     question: string,
     relevantChunks: RetrievedChunk[],
     strictCitations: boolean,
-    abstainThreshold: number
+    abstainThreshold: number,
+    apiKey: string | null = null
 ): Promise<AnswerResult> {
     if (relevantChunks.length === 0) {
         return {
@@ -36,6 +45,9 @@ export async function answerQuestion(
             citations: []
         };
     }
+
+    const effectiveKey = apiKey || process.env.GROQ_API_KEY || '';
+    const provider = detectProvider(effectiveKey);
 
     // Format context with source indices
     const context = relevantChunks
@@ -57,18 +69,49 @@ Question: ${question}
 
 Answer:`;
 
-    try {
-        const response = await getGroqClient().chat.completions.create({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.2,
-            max_tokens: 1024,
-        });
+    let answer = '';
 
-        const answer = response.choices[0]?.message?.content || '';
+    try {
+        if (provider === 'groq') {
+            const client = new Groq({ apiKey: effectiveKey });
+            const response = await client.chat.completions.create({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.2,
+                max_tokens: 1024,
+            });
+            answer = response.choices[0]?.message?.content || '';
+        } else if (provider === 'openai') {
+            const client = new OpenAI({ apiKey: effectiveKey });
+            const response = await client.chat.completions.create({
+                model: 'gpt-4o',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.2,
+            });
+            answer = response.choices[0]?.message?.content || '';
+        } else if (provider === 'anthropic') {
+            const client = new Anthropic({ apiKey: effectiveKey });
+            const response = await client.messages.create({
+                model: 'claude-3-5-sonnet-20240620',
+                max_tokens: 1024,
+                system: systemPrompt,
+                messages: [{ role: 'user', content: userPrompt }],
+                temperature: 0.2,
+            });
+            answer = response.content[0].type === 'text' ? response.content[0].text : '';
+        } else if (provider === 'gemini') {
+            const genAI = new GoogleGenerativeAI(effectiveKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+            const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+            const result = await model.generateContent(fullPrompt);
+            answer = result.response.text();
+        }
 
         // Extract citations [1], [2], etc.
         const citationMatches = answer.match(/\[(\d+)\]/g) || [];
@@ -80,7 +123,7 @@ Answer:`;
 
         // Calculate confidence based on citations and retrieval scores
         const citationCoverage = citations.length / Math.min(relevantChunks.length, 3);
-        const avgRetrievalScore = relevantChunks.slice(0, 3).reduce((sum, c) => sum + c.score, 0) / 3;
+        const avgRetrievalScore = relevantChunks.slice(0, 3).reduce((sum, c) => sum + (c.score || 0), 0) / 3;
         const confidence = (citationCoverage * 0.5 + avgRetrievalScore * 0.5);
 
         // Check for abstention indicators
@@ -100,7 +143,8 @@ Answer:`;
                 answer: "I don't have enough information to answer this reliably.",
                 abstained: true,
                 confidence,
-                citations: []
+                citations: [],
+                provider
             };
         }
 
@@ -108,10 +152,11 @@ Answer:`;
             answer,
             abstained: false,
             confidence,
-            citations
+            citations,
+            provider
         };
-    } catch (error) {
-        console.error('Error calling Groq API:', error);
+    } catch (error: any) {
+        console.error(`Error calling ${provider} API:`, error);
         throw error;
     }
 }
@@ -121,5 +166,6 @@ Answer:`;
  */
 export function estimateTokens(text: string): number {
     // Rough estimate: ~1.3 tokens per word
-    return Math.ceil(text.split(/\s+/).length * 1.3);
+    return Math.ceil((text || '').split(/\s+/).length * 1.3);
 }
+

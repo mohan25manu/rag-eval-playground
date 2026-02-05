@@ -2,15 +2,17 @@
 
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, File, X, Loader2, ArrowRight } from 'lucide-react';
+import { Upload, File, X, Loader2, ArrowRight, Key, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/lib/store';
 
 export function Screen1Upload() {
-    const { documents, setDocuments, setScreen } = useAppStore();
+    const { documents, setDocuments, setScreen, groqApiKey, setGroqApiKey } = useAppStore();
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showApiKey, setShowApiKey] = useState(false);
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         if (acceptedFiles.length === 0) return;
@@ -165,6 +167,46 @@ export function Screen1Upload() {
                             ))}
                         </div>
                     )}
+                </CardContent>
+            </Card>
+
+            <Card className="bg-card/50 border-indigo-500/20">
+                <CardHeader>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <Key className="h-4 w-4 text-indigo-400" />
+                        API Key (Groq, OpenAI, Anthropic, Gemini) <span className="text-muted-foreground font-normal">(Optional)</span>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <Input
+                                type={showApiKey ? "text" : "password"}
+                                placeholder="sk-..., gsk_..., sk-ant-..., or AIza..."
+                                value={groqApiKey || ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGroqApiKey(e.target.value)}
+                                className="bg-transparent border-indigo-500/20 focus:border-indigo-500/50 pr-10"
+                            />
+                            <button
+                                onClick={() => setShowApiKey(!showApiKey)}
+                                className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 transition-colors"
+                            >
+                                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
+                        {groqApiKey && (
+                            <div className="flex items-center gap-2 animate-in fade-in duration-300">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Detected:</span>
+                                {groqApiKey.startsWith('gsk_') && <span className="text-[10px] bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded border border-orange-500/20 font-bold">Groq</span>}
+                                {groqApiKey.startsWith('sk-ant-') && <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20 font-bold">Anthropic</span>}
+                                {groqApiKey.startsWith('sk-') && !groqApiKey.startsWith('sk-ant-') && <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 font-bold">OpenAI</span>}
+                                {groqApiKey.startsWith('AIza') && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-bold">Gemini</span>}
+                            </div>
+                        )}
+                        <p className="text-[10px] text-muted-foreground">
+                            Providing your own key avoids shared rate limits. Your key is only used for this session and never stored.
+                        </p>
+                    </div>
                 </CardContent>
             </Card>
 

@@ -38,14 +38,14 @@ export function Screen2Questions() {
 
         if (parsed.length > 0 && parsed.length < 3) {
             setError('Please provide at least 3 questions');
-        } else if (parsed.length > 20) {
-            setError('Maximum 20 questions allowed');
+        } else if (parsed.length > 5) {
+            setError('Maximum 5 questions allowed (to avoid rate limits)');
         } else {
             setError(null);
         }
     };
 
-    const canProceed = useSampleQuestions || (questions.length >= 3 && questions.length <= 20);
+    const canProceed = useSampleQuestions || (questions.length >= 3 && questions.length <= 5);
 
     return (
         <div className="space-y-6">
@@ -115,7 +115,7 @@ export function Screen2Questions() {
                                         <span className="font-medium">Custom: Paste Your Questions</span>
                                     </div>
                                     <p className="text-sm text-muted-foreground">
-                                        One question per line (3-20 questions)
+                                        One question per line (3-5 questions)
                                     </p>
 
                                     {!useSampleQuestions && (
@@ -154,7 +154,7 @@ export function Screen2Questions() {
                     Back
                 </Button>
                 <Button
-                    onClick={() => setScreen('configure')}
+                    onClick={() => setScreen('dashboard')}
                     disabled={!canProceed}
                     size="lg"
                     className="gap-2"

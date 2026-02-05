@@ -5,6 +5,7 @@ import { RAGConfig } from './types';
  */
 export const BASELINE_CONFIG: RAGConfig = {
     chunkSize: 500,
+    chunkOverlap: 20,
     searchType: 'semantic',
     topK: 5,
     abstainThreshold: 0.5,
@@ -16,6 +17,7 @@ export const BASELINE_CONFIG: RAGConfig = {
  */
 export const DEFAULT_CONFIG: RAGConfig = {
     chunkSize: 500,
+    chunkOverlap: 20,
     searchType: 'semantic',
     topK: 5,
     abstainThreshold: 0.5,

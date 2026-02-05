@@ -6,8 +6,9 @@ import { Chunk, Document } from './types';
 export function chunkDocument(
     doc: Document,
     chunkSize: number,
-    overlap: number = 100
+    overlapPercent: number = 20
 ): Chunk[] {
+    const overlap = Math.floor(chunkSize * (overlapPercent / 100));
     const chunks: Chunk[] = [];
     const text = doc.text;
 
@@ -78,7 +79,7 @@ export function chunkDocument(
 export function chunkDocuments(
     docs: Document[],
     chunkSize: number,
-    overlap: number = 100
+    overlapPercent: number = 20
 ): Chunk[] {
-    return docs.flatMap(doc => chunkDocument(doc, chunkSize, overlap));
+    return docs.flatMap(doc => chunkDocument(doc, chunkSize, overlapPercent));
 }

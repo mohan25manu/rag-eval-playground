@@ -65,10 +65,11 @@ async function embedChunks(chunks: Chunk[]): Promise<Chunk[]> {
 async function runEvaluation(
     documents: Document[],
     questions: string[],
-    config: RAGConfig
+    config: RAGConfig,
+    apiKey: string | null = null
 ): Promise<EvaluationResult[]> {
     // Chunk documents
-    const chunks = chunkDocuments(documents, config.chunkSize, 100);
+    const chunks = chunkDocuments(documents, config.chunkSize, config.chunkOverlap);
 
     // Embed chunks
     const embeddedChunks = await embedChunks(chunks);
@@ -76,6 +77,11 @@ async function runEvaluation(
     const results: EvaluationResult[] = [];
 
     for (const question of questions) {
+        // Add artificial delay to avoid hitting Groq rate limits (Strategy A)
+        if (results.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
         const startTime = Date.now();
 
         // Embed query
@@ -95,7 +101,8 @@ async function runEvaluation(
             question,
             retrievedChunks,
             config.strictCitations,
-            config.abstainThreshold
+            config.abstainThreshold,
+            apiKey
         );
 
         // Classify failure mode
@@ -125,11 +132,13 @@ async function runEvaluation(
 
 export async function POST(req: NextRequest) {
     try {
-        const { documents, questions, config } = await req.json() as {
+        const { documents, questions, config, apiKey } = await req.json() as {
             documents: Document[];
             questions: string[];
             config: RAGConfig;
+            apiKey?: string | null;
         };
+
 
         // Validate inputs
         if (!documents || documents.length === 0) {
@@ -146,18 +155,18 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        if (questions.length < 3 || questions.length > 20) {
+        if (questions.length < 3 || questions.length > 5) {
             return NextResponse.json(
-                { error: 'Please provide between 3 and 20 questions' },
+                { error: 'Please provide between 3 and 5 questions' },
                 { status: 400 }
             );
         }
 
         // Run evaluation with user config
-        const results = await runEvaluation(documents, questions, config);
+        const results = await runEvaluation(documents, questions, config, apiKey);
 
         // Run evaluation with baseline config (for comparison)
-        const baselineResults = await runEvaluation(documents, questions, BASELINE_CONFIG);
+        const baselineResults = await runEvaluation(documents, questions, BASELINE_CONFIG, apiKey);
 
         // Calculate metrics
         const metrics = calculateMetrics(results);
@@ -175,11 +184,29 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(response);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Evaluation error:', error);
+
+        let hint = 'Check your connection and try again.';
+        let errorMessage = 'Failed to run evaluation.';
+
+        // Detect Groq API errors
+        if (error.status === 429) {
+            errorMessage = 'Groq API Rate Limit Reached';
+            hint = 'Your Groq API key has exceeded its free tier usage or rate limit. Try again in a few minutes or use a different key.';
+        } else if (error.status === 401 || error.status === 403) {
+            errorMessage = 'Groq API Authentication / Quota Error';
+            hint = 'Your API key might be invalid, expired, or have no remaining quota. Check your Groq console settings.';
+        } else if (error.message?.includes('timeout') || error.code === 'ETIMEDOUT') {
+            errorMessage = 'Request Timed Out';
+            hint = 'The evaluation took too long. Try reducing the number of questions or the document size.';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+
         return NextResponse.json(
-            { error: 'Failed to run evaluation. Please try again.' },
-            { status: 500 }
+            { error: errorMessage, hint },
+            { status: error.status || 500 }
         );
     }
 }

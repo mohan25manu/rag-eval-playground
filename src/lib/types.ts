@@ -1,5 +1,6 @@
 export interface RAGConfig {
   chunkSize: 300 | 500 | 800 | 1200;
+  chunkOverlap: number; // Percentage (e.g., 10, 20, 30)
   searchType: 'semantic' | 'keyword' | 'hybrid';
   topK: 3 | 5 | 8;
   abstainThreshold: number;
@@ -38,11 +39,11 @@ export interface EvaluationResult {
   latency: number;
 }
 
-export type FailureMode = 
-  | 'retrieval_miss' 
-  | 'context_dilution' 
-  | 'hallucination' 
-  | 'over_abstain' 
+export type FailureMode =
+  | 'retrieval_miss'
+  | 'context_dilution'
+  | 'hallucination'
+  | 'over_abstain'
   | 'perfect';
 
 export interface Metrics {
