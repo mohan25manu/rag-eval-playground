@@ -1,18 +1,86 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, File, X, Loader2, ArrowRight, Key, Eye, EyeOff } from 'lucide-react';
+import { Upload, File as FileIcon, X, Loader2, ArrowRight, Key, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/lib/store';
+import { Document } from '@/lib/types';
+
+// PDF extraction imports - unpdf works in browser
+let extractText: any;
+let getDocumentProxy: any;
 
 export function Screen1Upload() {
     const { documents, setDocuments, setScreen, groqApiKey, setGroqApiKey } = useAppStore();
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showApiKey, setShowApiKey] = useState(false);
+
+    // Dynamic import to avoid SSR issues with PDF.js
+    useEffect(() => {
+        const initPDF = async () => {
+            try {
+                const unpdf = await import('unpdf');
+                extractText = unpdf.extractText;
+                getDocumentProxy = unpdf.getDocumentProxy;
+            } catch (err) {
+                console.error('Failed to load unpdf:', err);
+            }
+        };
+        initPDF();
+    }, []);
+
+    const processFile = async (file: File): Promise<Document> => {
+        const arrayBuffer = await file.arrayBuffer();
+        let text = '';
+
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+            if (!extractText || !getDocumentProxy) {
+                // Wait a bit for dynamic import if needed
+                await new Promise(r => setTimeout(r, 800));
+
+                // If still not loaded, try to import again
+                if (!extractText) {
+                    const unpdf = await import('unpdf');
+                    extractText = unpdf.extractText;
+                    getDocumentProxy = unpdf.getDocumentProxy;
+                }
+            }
+
+            try {
+                const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer));
+                const result = await extractText(pdf, { mergePages: true });
+                text = result.text;
+            } catch (err) {
+                console.error('Browser PDF extraction failed:', err);
+                throw new Error(`Failed to parse PDF: ${file.name}. It might be corrupted or password protected.`);
+            }
+        } else {
+            // Text or Markdown
+            text = new TextDecoder().decode(arrayBuffer);
+        }
+
+        // Clean up text (mirroring server logic)
+        text = text
+            .replace(/\r\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/\s{3,}/g, ' ')
+            .trim();
+
+        if (text.length === 0) {
+            throw new Error(`File ${file.name} appears to be empty or could not extract text.`);
+        }
+
+        return {
+            id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: file.name,
+            text,
+            size: file.size
+        };
+    };
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         if (acceptedFiles.length === 0) return;
@@ -27,25 +95,14 @@ export function Screen1Upload() {
         setError(null);
 
         try {
-            const formData = new FormData();
-            acceptedFiles.forEach((file) => {
-                formData.append('files', file);
-            });
-
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Upload failed');
+            const newDocs: Document[] = [];
+            for (const file of acceptedFiles) {
+                const processedDoc = await processFile(file);
+                newDocs.push(processedDoc);
             }
-
-            setDocuments([...documents, ...data.documents]);
+            setDocuments([...documents, ...newDocs]);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Upload failed');
+            setError(err instanceof Error ? err.message : 'Processing failed');
         } finally {
             setIsUploading(false);
         }
@@ -58,7 +115,7 @@ export function Screen1Upload() {
             'text/plain': ['.txt'],
             'text/markdown': ['.md'],
         },
-        maxSize: 5 * 1024 * 1024, // 5MB
+        maxSize: 10 * 1024 * 1024, // 10MB
         disabled: isUploading || documents.length >= 3,
     });
 
@@ -90,7 +147,7 @@ export function Screen1Upload() {
                         Upload Your Documents
                     </CardTitle>
                     <CardDescription>
-                        PDF, TXT, or Markdown files (Max 3 files, 5MB each)
+                        PDF, TXT, or Markdown (Max 3 files, 10MB each • Processed in Browser)
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -110,7 +167,8 @@ export function Screen1Upload() {
                         {isUploading ? (
                             <div className="flex flex-col items-center gap-2">
                                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                <p className="text-muted-foreground">Processing files...</p>
+                                <p className="text-muted-foreground font-medium">Extracting text locally...</p>
+                                <p className="text-xs text-muted-foreground">This stays in your browser</p>
                             </div>
                         ) : isDragActive ? (
                             <div className="flex flex-col items-center gap-2">
@@ -120,18 +178,19 @@ export function Screen1Upload() {
                         ) : (
                             <div className="flex flex-col items-center gap-2">
                                 <Upload className="h-10 w-10 text-muted-foreground" />
-                                <p className="text-muted-foreground">
+                                <p className="text-muted-foreground font-medium">
                                     {documents.length >= 3
                                         ? 'Maximum files reached'
                                         : 'Drag & drop files here, or click to select'
                                     }
                                 </p>
+                                <p className="text-xs text-muted-foreground">Supports PDF, TXT, and Markdown</p>
                             </div>
                         )}
                     </div>
 
                     {error && (
-                        <div className="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                        <div className="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium">
                             {error}
                         </div>
                     )}
@@ -144,10 +203,10 @@ export function Screen1Upload() {
                             {documents.map((doc) => (
                                 <div
                                     key={doc.id}
-                                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-muted/50"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <File className="h-5 w-5 text-primary" />
+                                        <FileIcon className="h-5 w-5 text-indigo-400" />
                                         <div>
                                             <p className="font-medium text-sm">{doc.name}</p>
                                             <p className="text-xs text-muted-foreground">
@@ -159,7 +218,7 @@ export function Screen1Upload() {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => removeDocument(doc.id)}
-                                        className="h-8 w-8"
+                                        className="h-8 w-8 hover:text-destructive transition-colors"
                                     >
                                         <X className="h-4 w-4" />
                                     </Button>
@@ -215,7 +274,7 @@ export function Screen1Upload() {
                     onClick={() => setScreen('questions')}
                     disabled={documents.length === 0}
                     size="lg"
-                    className="gap-2"
+                    className="gap-2 shadow-lg shadow-indigo-500/10"
                 >
                     Next: Add Test Questions
                     <ArrowRight className="h-4 w-4" />
